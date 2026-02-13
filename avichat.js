@@ -648,10 +648,15 @@ button {
 
       function scrollToBottom(force = false) {
         const container = elements.messages;
-        if (force || (container.scrollHeight - container.scrollTop - container.clientHeight < CONFIG.AUTO_SCROLL_THRESHOLD)) {
-          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        const isNearBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight <
+          CONFIG.AUTO_SCROLL_THRESHOLD;
+
+        if (force || isNearBottom) {
+          container.scrollTop = container.scrollHeight;
         }
       }
+
 
       function updateChatStatus(status) { elements.chatStatus.textContent = status; }
 
