@@ -475,7 +475,7 @@ button {
         DIFY_API_URL: this.config.apiUrl,
         DIFY_API_KEY: this.config.apiKey,
         USER_ID: 'web-' + Math.random().toString(36).slice(2),
-        WELCOME_MESSAGE: `Oi, seja bem-vindo(a)! 😊  
+        WELCOME_MESSAGE: this.config.welcomeMessage || `Oi, seja bem-vindo(a)! 😊  
       Eu sou a Maria Rosa, mas pode me chamar de Rô.
       Sou a assistente virtual do Governo de Rondônia e estou aqui pra te ajudar com os nossos serviços do Portal do Cidadão, de um jeito simples e sem complicação.
       Antes de continuar, é importante você saber como seus dados são protegidos. 
@@ -588,6 +588,13 @@ button {
       async function sendMessage() {
         const text = elements.input.value.trim();
         if (!text || state.isTyping) return;
+        // Remove mensagem inicial se for a primeira interação
+        if (state.messageHistory.length === 1 && 
+            state.messageHistory[0].text === CONFIG.WELCOME_MESSAGE) {
+          elements.messages.innerHTML = '';
+          state.messageHistory = [];
+        }
+
         
         addMessage(text, 'user');
         elements.input.value = '';
@@ -654,14 +661,9 @@ button {
 
       function scrollToBottom(force = false) {
         const container = elements.messages;
-        const isNearBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight <
-          CONFIG.AUTO_SCROLL_THRESHOLD;
-
-        if (force || isNearBottom) {
-          container.scrollTop = container.scrollHeight;
-        }
+        container.scrollTop = container.scrollHeight;
       }
+
 
 
       function updateChatStatus(status) { elements.chatStatus.textContent = status; }
