@@ -551,7 +551,7 @@ button {
         setTimeout(() => { addMessage(CONFIG.WELCOME_MESSAGE, 'bot', false); }, 300);
       }
 
-      function addMessage(text, type, showTime = true) {
+      function addMessage(text, type, showTime = true, messageId = null) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}`;
         
@@ -574,6 +574,29 @@ button {
           timeSpan.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           messageDiv.appendChild(timeSpan);
         }
+
+        if (type === 'bot' && messageId) {
+          const feedbackDiv = document.createElement('div');
+          feedbackDiv.style.marginTop = '8px';
+          feedbackDiv.style.display = 'flex';
+          feedbackDiv.style.gap = '8px';
+
+          const likeBtn = document.createElement('button');
+          likeBtn.textContent = '👍';
+          likeBtn.style.cursor = 'pointer';
+          likeBtn.onclick = () => sendFeedback(messageId, 'like', likeBtn);
+
+          const dislikeBtn = document.createElement('button');
+          dislikeBtn.textContent = '👎';
+          dislikeBtn.style.cursor = 'pointer';
+          dislikeBtn.onclick = () => sendFeedback(messageId, 'dislike', dislikeBtn);
+
+          feedbackDiv.appendChild(likeBtn);
+          feedbackDiv.appendChild(dislikeBtn);
+          messageDiv.appendChild(feedbackDiv);
+        }
+
+
 
         elements.messages.appendChild(messageDiv);
         state.messageHistory.push({ text, type, time: new Date().toISOString() });
@@ -625,9 +648,10 @@ button {
           const data = await response.json();
           if (data.conversation_id) state.conversationId = data.conversation_id;
           const reply = data.answer || 'Desculpe, não consegui processar sua mensagem.';
+          const messageId = data.message_id;
           
           hideTyping();
-          addMessage(reply, 'bot');
+          addMessage(reply, 'bot', true, messageId);
         } catch (error) {
           hideTyping();
           addMessage('😕 Erro ao conectar com o assistente.', 'bot');
@@ -699,6 +723,28 @@ button {
         }
         if (convId) state.conversationId = convId;
       }
+
+      
+      async function sendFeedback(messageId, rating, button) {
+        try {
+          await fetch(`${CONFIG.DIFY_API_URL.replace('/chat-messages', '')}/messages/${messageId}/feedbacks`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${CONFIG.DIFY_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              rating: rating === 'like' ? 'like' : 'dislike'
+            })
+          });
+
+          button.style.opacity = '0.5';
+          button.disabled = true;
+        } catch (err) {
+          console.error('Erro ao enviar feedback', err);
+        }
+      }
+
 
       // Inicialização da lógica
       initializeEventListeners();
