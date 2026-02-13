@@ -769,23 +769,35 @@ button {
 
       async function sendFeedback(messageId, rating, container) {
         try {
-          await fetch(`${CONFIG.BASE_URL}/messages/${messageId}/feedbacks`, {
+          const response = await fetch(`${CONFIG.BASE_URL}/messages/${messageId}/feedbacks`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${CONFIG.DIFY_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              rating: rating
+              rating: rating,
+              user: CONFIG.USER_ID
             })
           });
 
-          container.innerHTML = `<span style="font-size:12px;color:#10b981;">✓ Obrigado pelo feedback</span>`;
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Erro Dify:", errorText);
+            return;
+          }
+
+          container.innerHTML = `
+            <span style="font-size:12px;color:#10b981;">
+              ✓ Obrigado pelo feedback
+            </span>
+          `;
 
         } catch (err) {
           console.error('Erro ao enviar feedback', err);
         }
       }
+
 
       
 
