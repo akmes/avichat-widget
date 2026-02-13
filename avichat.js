@@ -588,7 +588,7 @@ button {
             const btn = document.createElement('button');
             btn.innerHTML = type === 'like'
               ? `<svg fill="#000000" xmlns="http://www.w3.org/2000/svg" 
-                    width="800px" height="800px" viewBox="0 0 52 52" enable-background="new 0 0 52 52" xml:space="preserve">
+                    width="18px" height="18px" viewBox="0 0 52 52" enable-background="new 0 0 52 52" xml:space="preserve">
                   <g>
                     <path d="M10.5,21h-5C4.7,21,4,21.7,4,22.5v23C4,46.3,4.7,47,5.5,47H8c2.2,0,4-1.8,4-4V22.5C12,21.7,11.3,21,10.5,21
                       z"/>
@@ -597,7 +597,7 @@ button {
                   </g>
                   </svg>`
               : `<svg fill="#000000" xmlns="http://www.w3.org/2000/svg" 
-                    width="800px" height="800px" viewBox="0 0 52 52" enable-background="new 0 0 52 52" xml:space="preserve">
+                    width="18px" height="18px" viewBox="0 0 52 52" enable-background="new 0 0 52 52" xml:space="preserve">
                   <g>
                     <path d="M12,29.5V9c0-2.2-1.8-4-4-4H5.5C4.7,5,4,5.7,4,6.5v23C4,30.3,4.7,31,5.5,31h5C11.3,31,12,30.3,12,29.5z
                       M48,26V13.5C48,4.8,41.1,4,33.6,4c-7.1,0-9.4,2.7-16.2,3C16.6,7,16,7.7,16,8.5v20c0,0.8,0.7,1.5,1.5,1.5c4.8,0,8.5,5.2,8.5,10.5v6
