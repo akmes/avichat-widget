@@ -50,8 +50,8 @@
 
       
       :root {
-  --primary-color: #2b60ab;
-  --primary-hover: #1e4a8f;
+  --primary-color: ${this.config.primaryColor || '#2b60ab'};
+  --primary-hover: ${this.config.primaryHover || '#1e4a8f'};
   --primary-light: #e8f0ff;
   --text-primary: #111827;
   --text-secondary: #6b7280;
@@ -436,9 +436,15 @@ button {
       <div class="chat-container" id="chat" role="dialog" aria-labelledby="chatTitle">
         <div class="chat-header">
           <div class="chat-header-left">
-            <img src="img/chatbot-maria.jpg" alt="Avatar da Maria" class="chat-avatar">
+            <img src="${this.config.avatarUrl || 'img/chatbot-maria.jpg'}" 
+                alt="Avatar" 
+                class="chat-avatar">
+
             <div class="chat-header-info">
-              <span class="chat-title" id="chatTitle">Maria — Em Treinamento</span>
+              <span class="chat-title" id="chatTitle">
+                ${this.config.botName || 'Maria — Em Treinamento'}
+              </span>
+
               <span class="chat-status" id="chatStatus">Online</span>
             </div>
           </div>
