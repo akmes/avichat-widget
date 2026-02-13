@@ -473,6 +473,7 @@ button {
       // ========= CONFIGURAÇÕES =========
       const CONFIG = {
         DIFY_API_URL: this.config.apiUrl,
+        BASE_URL: this.config.apiUrl.replace('/chat-messages', ''),
         DIFY_API_KEY: this.config.apiKey,
         USER_ID: 'web-' + Math.random().toString(36).slice(2),
         WELCOME_MESSAGE: this.config.welcomeMessage || `Oi, seja bem-vindo(a)! 😊  
@@ -575,27 +576,69 @@ button {
           messageDiv.appendChild(timeSpan);
         }
 
+
         if (type === 'bot' && messageId) {
           const feedbackDiv = document.createElement('div');
-          feedbackDiv.style.marginTop = '8px';
           feedbackDiv.style.display = 'flex';
-          feedbackDiv.style.gap = '8px';
+          feedbackDiv.style.gap = '10px';
+          feedbackDiv.style.marginTop = '10px';
+          feedbackDiv.style.alignItems = 'center';
 
-          const likeBtn = document.createElement('button');
-          likeBtn.textContent = '👍';
-          likeBtn.style.cursor = 'pointer';
-          likeBtn.onclick = () => sendFeedback(messageId, 'like', likeBtn);
+          const createBtn = (type) => {
+            const btn = document.createElement('button');
+            btn.innerHTML = type === 'like'
+              ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-6 0v4"/>
+                  <path d="M5 15h14l-1 7H6l-1-7z"/>
+                </svg>`
+              : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 15v4a3 3 0 0 0 6 0v-4"/>
+                  <path d="M19 9H5l1-7h12l1 7z"/>
+                </svg>`;
 
-          const dislikeBtn = document.createElement('button');
-          dislikeBtn.textContent = '👎';
-          dislikeBtn.style.cursor = 'pointer';
-          dislikeBtn.onclick = () => sendFeedback(messageId, 'dislike', dislikeBtn);
+            btn.style.border = '1px solid var(--border-color)';
+            btn.style.background = 'white';
+            btn.style.borderRadius = '8px';
+            btn.style.cursor = 'pointer';
+            btn.style.padding = '6px';
+            btn.style.transition = 'all 0.2s ease';
 
-          feedbackDiv.appendChild(likeBtn);
-          feedbackDiv.appendChild(dislikeBtn);
+            btn.onmouseenter = () => {
+              btn.style.background = '#f3f4f6';
+            };
+
+            btn.onmouseleave = () => {
+              btn.style.background = 'white';
+            };
+
+            btn.onclick = () => {
+              if (feedbackDiv.dataset.clicked) return;
+
+              feedbackDiv.dataset.clicked = "true";
+
+              if (type === 'like') {
+                btn.style.background = '#dcfce7';
+                btn.style.borderColor = '#16a34a';
+                btn.style.color = '#16a34a';
+              } else {
+                btn.style.background = '#fee2e2';
+                btn.style.borderColor = '#dc2626';
+                btn.style.color = '#dc2626';
+              }
+
+              sendFeedback(messageId, type, feedbackDiv);
+            };
+
+            return btn;
+          };
+
+          feedbackDiv.appendChild(createBtn('like'));
+          feedbackDiv.appendChild(createBtn('dislike'));
+
           messageDiv.appendChild(feedbackDiv);
         }
 
+        
 
 
         elements.messages.appendChild(messageDiv);
@@ -724,26 +767,27 @@ button {
         if (convId) state.conversationId = convId;
       }
 
-      
-      async function sendFeedback(messageId, rating, button) {
+      async function sendFeedback(messageId, rating, container) {
         try {
-          await fetch(`${CONFIG.DIFY_API_URL.replace('/chat-messages', '')}/messages/${messageId}/feedbacks`, {
+          await fetch(`${CONFIG.BASE_URL}/messages/${messageId}/feedbacks`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${CONFIG.DIFY_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              rating: rating === 'like' ? 'like' : 'dislike'
+              rating: rating
             })
           });
 
-          button.style.opacity = '0.5';
-          button.disabled = true;
+          container.innerHTML = `<span style="font-size:12px;color:#10b981;">✓ Obrigado pelo feedback</span>`;
+
         } catch (err) {
           console.error('Erro ao enviar feedback', err);
         }
       }
+
+      
 
 
       // Inicialização da lógica
