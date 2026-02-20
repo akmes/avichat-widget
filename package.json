@@ -1,0 +1,22 @@
+{
+  "name": "avichat-widget",
+  "version": "1.0.0",
+  "description": "Embeddable AviChat widget",
+  "main": "avichat.js",
+  "author": "akmes",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akmes/avichat-widget.git"
+  },
+  "homepage": "https://github.com/akmes/avichat-widget",
+  "bugs": {
+    "url": "https://github.com/akmes/avichat-widget/issues"
+  },
+  "keywords": [
+    "chat",
+    "widget",
+    "embed",
+    "javascript"
+  ]
+}
