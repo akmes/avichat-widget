@@ -200,7 +200,7 @@ button {
   right: 24px;
 
   width: min(400px, 95vw);
-  height: min(600px, 90vh);
+  height: var(--real-vh) !important;
 
   max-width: 100vw;
   max-height: 100vh;
@@ -467,22 +467,21 @@ button {
 
   /* Container ocupa a tela toda */
   .chat-container {
+    position: fixed;
+    inset: 0;
     width: 100%;
     height: 100%;
-    height: 100dvh; /* [FIX] dvh respeita a barra de endereços retrátil do Chrome mobile */
-    border-radius: 0;
-    bottom: 0;
-    right: 0;
-    top: 0;
-    left: 0;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
   }
 
   /* [FIX] Botão sobe um pouco para não ficar colado na barra de navegação do Android */
   .chat-button {
-    bottom: 20px;
-    right: 16px;
-    width: 56px;
-    height: 56px;
+    bottom: 20px !important;
+    right: 16px !important;
+    width: 56px !important;
+    height: 56px !important;
   }
 
   /* [FIX] Header menor no mobile */
@@ -501,8 +500,8 @@ button {
 
   /* [FIX] Área de mensagens com padding menor */
   .chat-messages {
-    padding: 14px 12px;
-    gap: 10px;
+    flex: 1;
+    overflow-y: auto;
   }
 
   /* [FIX] Mensagens podem ocupar mais espaço na tela estreita */
@@ -517,9 +516,7 @@ button {
   }
 
   .chat-input {
-    padding: 10px 12px;
-    /* [FIX] safe-area-inset garante que o input não fique atrás da barra home do iPhone */
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    flex-shrink: 0;
   }
 }
       `;
@@ -761,8 +758,7 @@ button {
         const text = elements.input.value.trim();
         if (!text || state.isTyping) return;
 
-        if (state.messageHistory.length === 1 && 
-            state.messageHistory[0].text === CONFIG.WELCOME_MESSAGE) {
+        if (state.messageHistory.some(msg => msg.text === CONFIG.WELCOME_MESSAGE)) {
           elements.messages.innerHTML = '';
           state.messageHistory = [];
         }
@@ -930,6 +926,14 @@ button {
       if (state.messageHistory.length === 0) addWelcomeMessage();
       elements.input.focus();
       console.log('chat iniciado!');
+      // Corrige altura real quando teclado abre (Android fix)
+      function adjustForKeyboard() {
+        const vh = window.innerHeight;
+        document.documentElement.style.setProperty('--real-vh', `${vh}px`);
+      }
+
+window.addEventListener('resize', adjustForKeyboard);
+adjustForKeyboard();
     }
   };
 
