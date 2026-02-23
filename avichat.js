@@ -1,15 +1,64 @@
 (function () {
 
+  // ============================================================
+  // UTILITÁRIOS DE SEGURANÇA
+  // ============================================================
+
+  /**
+   * Sanitiza uma string para uso seguro como textContent (escapa HTML).
+   * Usado para botName e outros campos de texto simples.
+   */
+  function sanitizeText(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML; // retorna versão com entidades HTML escapadas
+  }
+
+  /**
+   * Valida se o valor é uma cor CSS segura (hex, rgb, hsl ou named color).
+   * Impede CSS Injection via primaryColor / primaryHover.
+   */
+  function sanitizeColor(value, fallback) {
+    if (!value) return fallback;
+    const safe = String(value).trim();
+    // Aceita: #fff, #aabbcc, rgb(...), rgba(...), hsl(...), hsla(...), named colors
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(safe)) return safe;
+    if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(\s*,\s*[\d.]+)?\s*\)$/.test(safe)) return safe;
+    if (/^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%(\s*,\s*[\d.]+)?\s*\)$/.test(safe)) return safe;
+    if (/^[a-zA-Z]+$/.test(safe)) return safe; // named colors como 'blue', 'red'
+    console.warn('[AviChatWidget] Cor inválida ignorada:', safe);
+    return fallback;
+  }
+
+  /**
+   * Valida se a URL do avatar é segura (apenas http/https).
+   * Impede javascript: URIs no src da imagem.
+   */
+  function sanitizeUrl(url, fallback) {
+    if (!url) return fallback;
+    try {
+      const parsed = new URL(String(url));
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return url;
+    } catch (_) {}
+    console.warn('[AviChatWidget] URL inválida ignorada:', url);
+    return fallback;
+  }
+
   const AviChatWidget = {
     // Carrega as dependências externas se não estiverem presentes
     async loadDependencies() {
       const scripts = [
-        { id: 'marked-js', url: 'https://cdn.jsdelivr.net/npm/marked/marked.min.js' },
-        { id: 'highlight-js', url: 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js' }
+        { id: 'marked-js',      url: 'https://cdn.jsdelivr.net/npm/marked/marked.min.js' },
+        { id: 'highlight-js',   url: 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js' },
+        // [FIX] DOMPurify adicionado para sanitizar HTML gerado pelo marked (XSS via API)
+        { id: 'dompurify-js',   url: 'https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js' }
       ];
 
       const promises = scripts.map(src => {
-        if (document.getElementById(src.id) || (src.id === 'marked-js' && typeof marked !== 'undefined')) return Promise.resolve();
+        if (document.getElementById(src.id)) return Promise.resolve();
+        if (src.id === 'marked-js' && typeof marked !== 'undefined') return Promise.resolve();
+        if (src.id === 'dompurify-js' && typeof DOMPurify !== 'undefined') return Promise.resolve();
         return new Promise((resolve) => {
           const s = document.createElement('script');
           s.id = src.id;
@@ -32,7 +81,6 @@
 
     async init(config) {
       this.config = config || {};
-      // Aguarda o carregamento das libs externas antes de montar o widget
       await this.loadDependencies();
       this.mount();
     },
@@ -44,14 +92,16 @@
     },
 
     injectCSS() {
+      // [FIX] Cores validadas antes de interpolar no CSS — impede CSS Injection
+      const primaryColor = sanitizeColor(this.config.primaryColor, '#2b60ab');
+      const primaryHover = sanitizeColor(this.config.primaryHover, '#1e4a8f');
+
       const style = document.createElement('style');
       style.innerHTML = 
       `
-
-      
       :root {
-  --primary-color: ${this.config.primaryColor || '#2b60ab'};
-  --primary-hover: ${this.config.primaryHover || '#1e4a8f'};
+  --primary-color: ${primaryColor};
+  --primary-hover: ${primaryHover};
   --primary-light: #e8f0ff;
   --text-primary: #111827;
   --text-secondary: #6b7280;
@@ -84,6 +134,7 @@ button {
 
 /* ========== BOTÃO FLUTUANTE ========== */
 .chat-button {
+  /* [FIX] Removido "position: relative" duplicado que sobrescrevia o "position: fixed" */
   position: fixed;
   bottom: 24px;
   right: 24px;
@@ -101,7 +152,6 @@ button {
   box-shadow: var(--shadow-lg);
   transition: var(--transition);
   z-index: 1000;
-  position: relative;
 }
 
 .chat-button:hover {
@@ -146,19 +196,21 @@ button {
 /* ========== CONTAINER DO CHAT ========== */
 .chat-container {
   position: fixed;
-  bottom: 0 !important;
-  right: 0 !important;
-  top: auto !important;
-  left: auto !important;
-  width: 400px;
-  height: 600px;
+  bottom: 24px;
+  right: 24px;
+
+  width: min(400px, 95vw);
+  height: min(600px, 90vh);
+
+  max-width: 100vw;
+  max-height: 100vh;
+
   background: var(--bg-white);
   display: none;
   flex-direction: column;
-  border-radius: 16px 16px 0 0;
+  border-radius: 16px;
   box-shadow: var(--shadow-lg);
   z-index: 1001;
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes slideUp {
@@ -410,21 +462,81 @@ button {
   40% { opacity: 1; transform: scale(1); }
 }
 
-@media (max-width: 480px) {
-  .chat-container { width: 100%; height: 100vh; border-radius: 0; bottom: 0; right: 0; }
+/* ========== RESPONSIVIDADE ========== */
+@media (max-width: 780px) {
+
+  /* Container ocupa a tela toda */
+  .chat-container {
+    width: 100%;
+    height: 100%;
+    height: 100dvh; /* [FIX] dvh respeita a barra de endereços retrátil do Chrome mobile */
+    border-radius: 0;
+    bottom: 0;
+    right: 0;
+    top: 0;
+    left: 0;
+  }
+
+  /* [FIX] Botão sobe um pouco para não ficar colado na barra de navegação do Android */
+  .chat-button {
+    bottom: 20px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+  }
+
+  /* [FIX] Header menor no mobile */
+  .chat-header {
+    padding: 14px 16px;
+  }
+
+  .chat-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .chat-title {
+    font-size: 15px;
+  }
+
+  /* [FIX] Área de mensagens com padding menor */
+  .chat-messages {
+    padding: 14px 12px;
+    gap: 10px;
+  }
+
+  /* [FIX] Mensagens podem ocupar mais espaço na tela estreita */
+  .message {
+    max-width: 90%;
+  }
+
+  /* [FIX] font-size 16px — abaixo disso o iOS faz zoom automático ao focar no campo */
+  .chat-input textarea {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  .chat-input {
+    padding: 10px 12px;
+    /* [FIX] safe-area-inset garante que o input não fique atrás da barra home do iPhone */
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
 }
       `;
       document.head.appendChild(style);
     },
 
     injectHTML() {
+      // [FIX] botName e avatarUrl tratados via DOM em vez de interpolação no innerHTML,
+      // eliminando XSS via parâmetros de configuração.
+      const safeAvatarUrl = sanitizeUrl(this.config.avatarUrl, 'img/chatbot-maria.jpg');
+      const safeBotName   = this.config.botName || 'Maria — Em Treinamento'; // será setado via textContent abaixo
+
       const wrapper = document.createElement('div');
+
+      // Monta a estrutura usando apenas strings estáticas no innerHTML — sem dados do usuário
       wrapper.innerHTML = 
       `
-      <style>
-        #chat { position: fixed !important; bottom: 24px !important; right: 24px !important; }
-        #chatButton { position: fixed !important; bottom: 24px !important; right: 24px !important; }
-      </style>
 
       <button class="chat-button" id="chatButton" aria-label="Abrir chat">
         <svg class="chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -436,15 +548,12 @@ button {
       <div class="chat-container" id="chat" role="dialog" aria-labelledby="chatTitle">
         <div class="chat-header">
           <div class="chat-header-left">
-            <img src="${this.config.avatarUrl || 'img/chatbot-maria.jpg'}" 
+            <img id="chatAvatar"
                 alt="Avatar" 
                 class="chat-avatar">
 
             <div class="chat-header-info">
-              <span class="chat-title" id="chatTitle">
-                ${this.config.botName || 'Maria — Em Treinamento'}
-              </span>
-
+              <span class="chat-title" id="chatTitle"></span>
               <span class="chat-status" id="chatStatus">Online</span>
             </div>
           </div>
@@ -466,7 +575,12 @@ button {
         </div>
       </div>
       `;
+
       document.body.appendChild(wrapper);
+
+      // [FIX] Atribuição segura via DOM — sem interpolação de strings de config no HTML
+      document.getElementById('chatAvatar').src = safeAvatarUrl;
+      document.getElementById('chatTitle').textContent = safeBotName;
     },
 
     injectScripts() {
@@ -504,7 +618,7 @@ button {
         notificationBadge: document.getElementById('notificationBadge')
       };
 
-      // Configuração do Marked (executa após garantir que a lib carregou)
+      // Configuração do Marked
       marked.setOptions({
         breaks: true,
         gfm: true,
@@ -557,7 +671,15 @@ button {
         messageDiv.className = `message ${type}`;
         
         if (type === 'bot') {
-          messageDiv.innerHTML = marked.parse(text);
+          // [FIX] DOMPurify sanitiza o HTML gerado pelo marked antes de inserir no DOM,
+          // impedindo XSS vindo da resposta da API ou de conteúdo malicioso no markdown.
+          const rawHTML = marked.parse(text);
+          messageDiv.innerHTML = DOMPurify.sanitize(rawHTML, {
+            USE_PROFILES: { html: true },
+            FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
+          });
+
           messageDiv.querySelectorAll('a').forEach(link => {
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
@@ -566,6 +688,7 @@ button {
             hljs.highlightElement(block);
           });
         } else {
+          // [FIX] Mensagens do usuário sempre via textContent — nunca innerHTML
           messageDiv.textContent = text;
         }
 
@@ -576,7 +699,6 @@ button {
           messageDiv.appendChild(timeSpan);
         }
 
-
         if (type === 'bot' && messageId) {
           const feedbackDiv = document.createElement('div');
           feedbackDiv.style.display = 'flex';
@@ -584,9 +706,9 @@ button {
           feedbackDiv.style.marginTop = '10px';
           feedbackDiv.style.alignItems = 'center';
 
-          const createBtn = (type) => {
+          const createBtn = (btnType) => {
             const btn = document.createElement('button');
-            btn.innerHTML = type === 'like'
+            btn.innerHTML = btnType === 'like'
               ? `<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#434343"><path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z"/></svg>`
               : `<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="#434343"><path d="M240-840h440v520L400-40l-50-50q-7-7-11.5-19t-4.5-23v-14l44-174H120q-32 0-56-24t-24-56v-80q0-7 2-15t4-15l120-282q9-20 30-34t44-14Zm360 80H240L120-480v80h360l-54 220 174-174v-406Zm0 406v-406 406Zm80 34v-80h120v-360H680v-80h200v520H680Z"/></svg>`;
 
@@ -597,20 +719,14 @@ button {
             btn.style.padding = '6px';
             btn.style.transition = 'all 0.2s ease';
 
-            btn.onmouseenter = () => {
-              btn.style.background = '#f3f4f6';
-            };
-
-            btn.onmouseleave = () => {
-              btn.style.background = 'white';
-            };
+            btn.onmouseenter = () => { btn.style.background = '#f3f4f6'; };
+            btn.onmouseleave = () => { btn.style.background = 'white'; };
 
             btn.onclick = () => {
               if (feedbackDiv.dataset.clicked) return;
-
               feedbackDiv.dataset.clicked = "true";
 
-              if (type === 'like') {
+              if (btnType === 'like') {
                 btn.style.background = '#dcfce7';
                 btn.style.borderColor = '#16a34a';
                 btn.style.color = '#16a34a';
@@ -620,7 +736,7 @@ button {
                 btn.style.color = '#dc2626';
               }
 
-              sendFeedback(messageId, type, feedbackDiv);
+              sendFeedback(messageId, btnType, feedbackDiv);
             };
 
             return btn;
@@ -628,12 +744,8 @@ button {
 
           feedbackDiv.appendChild(createBtn('like'));
           feedbackDiv.appendChild(createBtn('dislike'));
-
           messageDiv.appendChild(feedbackDiv);
         }
-
-        
-
 
         elements.messages.appendChild(messageDiv);
         state.messageHistory.push({ text, type, time: new Date().toISOString() });
@@ -648,14 +760,13 @@ button {
       async function sendMessage() {
         const text = elements.input.value.trim();
         if (!text || state.isTyping) return;
-        // Remove mensagem inicial se for a primeira interação
+
         if (state.messageHistory.length === 1 && 
             state.messageHistory[0].text === CONFIG.WELCOME_MESSAGE) {
           elements.messages.innerHTML = '';
           state.messageHistory = [];
         }
 
-        
         addMessage(text, 'user');
         elements.input.value = '';
         autoResizeTextarea();
@@ -663,7 +774,6 @@ button {
         state.isTyping = true;
         elements.sendBtn.disabled = true;
         updateChatStatus('Digitando...');
-        
         showTyping();
         
         try {
@@ -725,8 +835,6 @@ button {
         container.scrollTop = container.scrollHeight;
       }
 
-
-
       function updateChatStatus(status) { elements.chatStatus.textContent = status; }
 
       function showNotification() {
@@ -746,19 +854,41 @@ button {
       }
 
       function loadFromLocalStorage() {
-        const history = localStorage.getItem('chat_history');
-        const convId = localStorage.getItem('conversation_id');
-        if (history) {
-          state.messageHistory = JSON.parse(history);
-          state.messageHistory.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = `message ${msg.type}`;
-            div.innerHTML = msg.type === 'bot' ? marked.parse(msg.text) : msg.text;
-            elements.messages.appendChild(div);
-          });
-          scrollToBottom(true);
+        try {
+          const history = localStorage.getItem('chat_history');
+          const convId = localStorage.getItem('conversation_id');
+
+          if (history) {
+            state.messageHistory = JSON.parse(history);
+            state.messageHistory.forEach(msg => {
+              const div = document.createElement('div');
+              div.className = `message ${msg.type}`;
+
+              if (msg.type === 'bot') {
+                // [FIX] DOMPurify sanitiza o HTML do histórico do bot antes de inserir no DOM
+                const rawHTML = marked.parse(msg.text);
+                div.innerHTML = DOMPurify.sanitize(rawHTML, {
+                  USE_PROFILES: { html: true },
+                  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+                  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
+                });
+              } else {
+                // [FIX] Mensagens do usuário carregadas do localStorage via textContent,
+                // impedindo XSS armazenado — a vulnerabilidade mais crítica do widget original.
+                div.textContent = msg.text;
+              }
+
+              elements.messages.appendChild(div);
+            });
+            scrollToBottom(true);
+          }
+          if (convId) state.conversationId = convId;
+        } catch (e) {
+          // Se o localStorage estiver corrompido, começa limpo
+          console.warn('[AviChatWidget] Histórico inválido no localStorage, limpando.', e);
+          localStorage.removeItem('chat_history');
+          localStorage.removeItem('conversation_id');
         }
-        if (convId) state.conversationId = convId;
       }
 
       async function sendFeedback(messageId, rating, container) {
@@ -781,20 +911,18 @@ button {
             return;
           }
 
-          container.innerHTML = `
-            <span style="font-size:12px;color:#10b981;">
-              ✓ Obrigado pelo feedback
-            </span>
-          `;
+          // [FIX] Feedback de confirmação via textContent — sem innerHTML com string dinâmica
+          const span = document.createElement('span');
+          span.style.fontSize = '12px';
+          span.style.color = '#10b981';
+          span.textContent = '✓ Obrigado pelo feedback';
+          container.innerHTML = '';
+          container.appendChild(span);
 
         } catch (err) {
           console.error('Erro ao enviar feedback', err);
         }
       }
-
-
-      
-
 
       // Inicialização da lógica
       initializeEventListeners();
