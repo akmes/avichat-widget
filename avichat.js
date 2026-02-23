@@ -196,21 +196,38 @@ button {
 /* ========== CONTAINER DO CHAT ========== */
 .chat-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-
-  width: min(400px, 95vw);
-  height: var(--real-vh) !important;
-
-  max-width: 100vw;
-  max-height: 100vh;
-
+  bottom: 0;
+  right: 0;
+  top: 0; /* Agora ocupa toda a tela */
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: var(--bg-white);
   display: none;
   flex-direction: column;
-  border-radius: 16px;
   box-shadow: var(--shadow-lg);
   z-index: 1001;
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Versão para desktop - mantém o tamanho original */
+@media (min-width: 769px) {
+  .chat-container {
+    bottom: 20px !important;
+    right: 20px !important;
+    top: auto !important;
+    left: auto !important;
+    width: 400px;
+    height: 600px;
+    border-radius: 16px;
+  }
+}
+
+/* Mobile - tela cheia */
+@media (max-width: 768px) {
+  .chat-container {
+    border-radius: 0;
+  }
 }
 
 @keyframes slideUp {
@@ -462,61 +479,174 @@ button {
   40% { opacity: 1; transform: scale(1); }
 }
 
-/* ========== RESPONSIVIDADE ========== */
-@media (max-width: 780px) {
-
-  /* Container ocupa a tela toda */
+/* ========== RESPONSIVIDADE MELHORADA ========== */
+@media (max-width: 768px) {
   .chat-container {
-    position: fixed;
-    inset: 0;
     width: 100%;
-    height: 100%;
-    border-radius: 0 !important;
-    display: flex;
-    flex-direction: column;
+    height: 100dvh; /* Usa dvh para melhor suporte mobile */
+    max-height: -webkit-fill-available; /* Fallback para Safari */
+    border-radius: 0;
+    bottom: 0;
+    right: 0;
+    top: 0;
+    left: 0;
   }
 
-  /* [FIX] Botão sobe um pouco para não ficar colado na barra de navegação do Android */
+  /* Ajuste do botão flutuante */
   .chat-button {
-    bottom: 20px !important;
-    right: 16px !important;
-    width: 56px !important;
-    height: 56px !important;
+    bottom: 20px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    z-index: 1000;
   }
 
-  /* [FIX] Header menor no mobile */
+  /* Header mais compacto */
   .chat-header {
-    padding: 14px 16px;
+    padding: 12px 16px;
+    border-radius: 0;
   }
 
   .chat-avatar {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
   }
 
   .chat-title {
     font-size: 15px;
   }
 
-  /* [FIX] Área de mensagens com padding menor */
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
+  .chat-status {
+    font-size: 12px;
   }
 
-  /* [FIX] Mensagens podem ocupar mais espaço na tela estreita */
+  /* Área de mensagens com padding otimizado */
+  .chat-messages {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+
+  /* Mensagens ocupam mais espaço */
   .message {
     max-width: 90%;
+    padding: 10px 14px;
+    font-size: 15px; /* Tamanho ideal para leitura mobile */
   }
 
-  /* [FIX] font-size 16px — abaixo disso o iOS faz zoom automático ao focar no campo */
+  /* Input area com safe-area-inset */
+  .chat-input {
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    gap: 10px;
+  }
+
+  /* Previne zoom automático no iOS */
   .chat-input textarea {
     font-size: 16px;
     padding: 10px 12px;
+    line-height: 1.4;
+    max-height: 100px;
+  }
+
+  /* Botão de enviar um pouco menor */
+  .chat-input button {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  /* Ajuste dos botões do header */
+  .header-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .header-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Ajustes para telas muito pequenas (menos de 360px) */
+@media (max-width: 360px) {
+  .chat-header {
+    padding: 10px 12px;
+  }
+
+  .chat-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .chat-title {
+    font-size: 14px;
+  }
+
+  .message {
+    max-width: 95%;
+    font-size: 14px;
+    padding: 8px 12px;
   }
 
   .chat-input {
-    flex-shrink: 0;
+    padding: 8px 12px;
+  }
+
+  .chat-input textarea {
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+}
+
+/* Suporte para dispositivos com notch ou barra de navegação */
+@supports (padding: max(0px)) {
+  .chat-container {
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: -webkit-fill-available;
+  }
+
+  .chat-messages {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* ========== AJUSTES PARA TECLADO MOBILE ========== */
+@media (max-width: 768px) {
+  /* Quando o teclado está aberto */
+  .chat-container.keyboard-open {
+    height: 100dvh;
+    max-height: -webkit-fill-available;
+  }
+
+  .chat-container.keyboard-open .chat-messages {
+    padding-bottom: 10px;
+    max-height: calc(100dvh - 140px); /* Ajuste baseado no header + input */
+  }
+
+  .chat-container.keyboard-open .chat-input {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-white);
+    z-index: 10;
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+  }
+
+  /* Garante que o input fique visível */
+  .chat-input textarea:focus {
+    font-size: 16px; /* Previne zoom no iOS */
+  }
+}
+
+/* Suporte para visual viewport (nova especificação) */
+@supports (height: 100dvh) {
+  .chat-container {
+    height: 100dvh;
+  }
+  
+  @media (min-width: 769px) {
+    .chat-container {
+      height: 600px;
+    }
   }
 }
       `;
@@ -534,6 +664,10 @@ button {
       // Monta a estrutura usando apenas strings estáticas no innerHTML — sem dados do usuário
       wrapper.innerHTML = 
       `
+      <style>
+        #chat { position: fixed !important; bottom: 24px !important; right: 24px !important; }
+        #chatButton { position: fixed !important; bottom: 24px !important; right: 24px !important; }
+      </style>
 
       <button class="chat-button" id="chatButton" aria-label="Abrir chat">
         <svg class="chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -758,7 +892,8 @@ button {
         const text = elements.input.value.trim();
         if (!text || state.isTyping) return;
 
-        if (state.messageHistory.some(msg => msg.text === CONFIG.WELCOME_MESSAGE)) {
+        if (state.messageHistory.length === 1 && 
+            state.messageHistory[0].text === CONFIG.WELCOME_MESSAGE) {
           elements.messages.innerHTML = '';
           state.messageHistory = [];
         }
@@ -926,14 +1061,8 @@ button {
       if (state.messageHistory.length === 0) addWelcomeMessage();
       elements.input.focus();
       console.log('chat iniciado!');
-      // Corrige altura real quando teclado abre (Android fix)
-      function adjustForKeyboard() {
-        const vh = window.innerHeight;
-        document.documentElement.style.setProperty('--real-vh', `${vh}px`);
-      }
 
-window.addEventListener('resize', adjustForKeyboard);
-adjustForKeyboard();
+
     }
   };
 
